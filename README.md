@@ -20,7 +20,7 @@
 1. **克隆仓库**:
    ```bash
    git clone https://github.com/Lianues/AIStudioBridge
-   cd AIStudioAutomator
+   cd AIStudioBridge
    ```
 2. **安装 [`Python`](Python) 依赖**:
    我们已为您准备了 [`requirements.txt`](requirements.txt) 文件。请运行：
@@ -53,4 +53,4 @@
   2. 打开 `TampermonkeyScript/automator.js` 和 `TampermonkeyScript/historyforger.js` 文件，脚本管理器会自动提示您安装。
   3. 安装后，这些脚本将在特定网页加载时自动运行，与您的本地服务器进行交互。
 
-### 打开一个AI Studio Chat页面
+### 打开一个AI Studio Chat历史对话页面,确保不是空对话页面
