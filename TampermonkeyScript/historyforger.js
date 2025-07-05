@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Google AI Studio - History Forger (v7.1 - The Index Corrector)
+// @name         Google AI Studio - History Forger (v7.2 - The Index Corrector)
 // @namespace    http://tampermonkey.net/
-// @version      7.1
+// @version      7.2
 // @description  Full control over AI Studio history and settings. Supports Text, JSON Mode, and Function Calling, with a robust UI corrector.
 // @author       You & AI Assistant
 // @match        https://aistudio.google.com/prompts/*
