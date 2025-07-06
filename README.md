@@ -9,6 +9,15 @@
 - **本地历史服务器 (`local_history_server.py`)**: 💾 提供一个本地 API 端点，用于存储和检索历史数据，支持流式传输。
 - **[`OpenAI`](OpenAI) 兼容服务器 (`openai_compatible_server.py`)**: 🔌 将本地服务封装为 [`OpenAI`](OpenAI) API 格式，方便与现有工具集成。
 
+### 👑 核心亮点：完整的函数调用支持！
+我们项目最强大的功能是**完全自动化、端到端的函数调用（Function Calling / Tool Calling）**。这意味着您可以：
+- **定义您的工具**: 在发送给 API 的请求中定义您的函数（工具）。
+- **AI 自动调用**: AI Studio 会智能地决定何时、如何调用您提供的工具，并返回一个符合 OpenAI 格式的 `tool_calls` 响应。
+- **并行调用支持**: 系统能够处理 AI 一次请求调用**多个函数**的复杂场景。
+- **全周期自动化**: 您可以在客户端执行函数，将结果通过 `role: "tool"` 消息发回，我们的系统会自动将结果提交给 AI Studio，并流式返回 AI 的最终文本回答，完成整个交互闭环。
+
+我们为此功能提供了一个专门的测试脚本，您可以参考 [`test_full_tool_call_cycle.py`](test_full_tool_call_cycle.py) 来了解如何构造请求并测试完整的函数调用周期。
+
 ## 🛠️ 安装指南
 
 ### 前提条件

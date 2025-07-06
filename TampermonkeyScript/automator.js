@@ -143,9 +143,9 @@
         }
     }
 
-    // --- 任务处理与服务器通信 (无变化) ---
+    // --- 任务处理与服务器通信 (升级以处理工具结果) ---
     async function handlePromptTask(promptText) {
-        console.log(`...[Automator] 开始处理新对话: "${promptText}"`);
+        console.log(`...[Automator] 开始处理新【对话】: "${promptText}"`);
         if (interceptorActive) restoreNetworkInterceptor();
 
         const interceptPromise = new Promise((resolve, reject) => {
@@ -169,7 +169,7 @@
             return;
         }
         submitButton.click();
-        console.log("...按钮已点击，等待网络响应...");
+        console.log("...[Automator] 主提交按钮已点击，等待网络响应...");
 
         try {
             const fullRawContent = await interceptPromise;
@@ -179,9 +179,79 @@
         }
     }
 
-    function pollForPromptJob() {
+    async function handleToolResultTask(resultText) {
+        console.log(`...[Automator] 开始处理【工具返回结果】...`);
+        if (interceptorActive) restoreNetworkInterceptor();
+
+        const interceptPromise = new Promise((resolve, reject) => {
+            installNetworkInterceptor(resolve, reject);
+        });
+
+        // 1. 找到最后一个函数调用块内的响应文本域
+        const toolResponseTextareas = document.querySelectorAll('textarea[placeholder="Enter function response"]');
+        if (toolResponseTextareas.length === 0) {
+            restoreNetworkInterceptor();
+            reportTaskResult("failed", "找不到任何工具函数响应的输入框。");
+            return;
+        }
+        const lastTextarea = toolResponseTextareas[toolResponseTextareas.length - 1];
+
+        // 2. 填入结果
+        lastTextarea.value = resultText;
+        lastTextarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        await new Promise(r => setTimeout(r, 300));
+
+        // 3. 找到与该文本域关联的提交按钮并点击
+        const submitButton = lastTextarea.closest('form')?.querySelector('button[type="submit"]');
+        if (!submitButton || submitButton.disabled) {
+            restoreNetworkInterceptor();
+            reportTaskResult("failed", "工具函数响应的提交按钮未激活。");
+            return;
+        }
+        submitButton.click();
+        console.log("...[Automator] 工具结果提交按钮已点击，等待网络响应...");
+
+        try {
+            const fullRawContent = await interceptPromise;
+            reportTaskResult("completed", fullRawContent);
+        } catch (error) {
+            reportTaskResult("failed", error.toString());
+        }
+    }
+
+
+    function pollForJobs() {
         if (currentTask || isRequesting) return;
         isRequesting = true;
+
+        // 优先检查工具返回任务
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: `${LOCAL_SERVER_URL}/get_tool_result_job`,
+            onload: (res) => {
+                try {
+                    const data = JSON.parse(res.responseText);
+                    if (data.status === 'success' && data.job) {
+                        currentTask = data.job;
+                        handleToolResultTask(currentTask.result);
+                        isRequesting = false; // 任务已找到，可以结束请求链
+                    } else {
+                        // 如果没有工具任务，则检查普通对话任务
+                        pollForPromptJob();
+                    }
+                } catch (e) {
+                    pollForPromptJob(); // 解析失败，继续检查
+                }
+            },
+            onerror: (err) => {
+                console.error("❌ Automator: 工具任务轮询连接失败:", err);
+                pollForPromptJob(); // 连接失败，继续检查
+            }
+        });
+    }
+
+    function pollForPromptJob() {
+        // 这个函数现在是 pollForJobs 的一部分，所以不需要重复设置 isRequesting
         GM_xmlhttpRequest({
             method: "GET",
             url: `${LOCAL_SERVER_URL}/get_prompt_job`,
@@ -195,7 +265,7 @@
                 } catch (e) {}
             },
             onerror: (err) => console.error("❌ Automator: 对话任务轮询连接失败:", err),
-            onloadend: () => { isRequesting = false; }
+            onloadend: () => { isRequesting = false; } // 无论结果如何，结束请求链
         });
     }
 

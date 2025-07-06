@@ -179,9 +179,45 @@
             currentInputText = historyMessages.pop().content;
         }
         for (const message of historyMessages) {
-            const role = message.role === 'assistant' ? 'model' : 'user';
-            const roleSpecificData = role === 'model' ? [1, null, 9] : [null, null, 2];
-            flatMessageList.push([message.content, null, null, null, null, null, null, null, role, null, null, null, null, null, null, null, ...roleSpecificData]);
+            if (message.role === 'tool') {
+                // 【【【新】】】处理工具调用结果
+                const toolCallId = message.tool_call_id; // 从OpenAI格式获取ID
+                const toolContent = JSON.stringify({ "result": message.content }); // 将内容包装成AI Studio期望的JSON字符串
+                 // 构造AI Studio内部的工具结果格式
+                flatMessageList.push([
+                    null, null, null, null, null, null, null, null, "tool",
+                    null, null, null, null, null, null, null, null, null, null, null, null,
+                    [
+                        [
+                            toolCallId, // 对应的函数调用ID
+                            [toolContent] // 包含结果的数组
+                        ]
+                    ]
+                ]);
+            } else if (message.role === 'assistant') {
+                 // 处理模型的回复，可能包含文本和工具调用
+                const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
+                const textContent = message.content || (hasToolCalls ? "" : " "); // 如果有工具调用但没文本，给个空字符串
+
+                const modelResponse = [
+                    textContent, null, null, null, null, null, null, null, "model",
+                    null, null, null, null, null, null, null, 1, null, null, null, null
+                ];
+
+                if (hasToolCalls) {
+                    const internalToolCalls = message.tool_calls.map(tc => {
+                        const args = JSON.parse(tc.function.arguments);
+                        const argsArray = Object.entries(args).map(([key, value]) => [key, [null, value]]); // 简化版参数转换
+                        return [tc.function.name, [[...argsArray]]];
+                    });
+                     modelResponse[21] = internalToolCalls; // 注入工具调用
+                }
+                flatMessageList.push(modelResponse);
+
+            } else { // user
+                const roleSpecificData = [null, null, 2];
+                flatMessageList.push([message.content, null, null, null, null, null, null, null, "user", null, null, null, null, null, null, null, ...roleSpecificData]);
+            }
         }
         const inputBoxState = [[currentInputText, null, null, null, null, null, null, null, "user"]];
         newPayload[0][13] = [flatMessageList, inputBoxState];

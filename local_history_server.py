@@ -14,6 +14,7 @@ app = Flask(__name__)
 # 任务队列和结果存储现在更加复杂，以支持流式传输
 INJECTION_JOBS = Queue()
 PROMPT_JOBS = Queue()
+TOOL_RESULT_JOBS = Queue() # 【【【新】】】为工具函数返回结果创建的新队列
 # RESULTS 现在为每个任务存储一个包含状态和流数据队列的字典
 # { "task_id": {"status": "pending", "stream_queue": Queue(), "full_response": None} }
 RESULTS = {}
@@ -79,6 +80,11 @@ def stream_chunk():
     task_id = data.get('task_id')
     chunk = data.get('chunk')
     
+    # 【【【调试日志】】】
+    print(f"\n--- 📥 [Local Server] 收到来自 Automator 的数据块 (Task ID: {task_id[:8]}) ---")
+    print(chunk)
+    print("--------------------------------------------------------------------")
+    
     if task_id in RESULTS:
         # 将数据块（或结束信号）放入对应任务的队列中
         RESULTS[task_id]['stream_queue'].put(chunk)
@@ -92,6 +98,10 @@ def get_chunk(task_id):
         try:
             # 非阻塞地从队列中获取数据
             chunk = RESULTS[task_id]['stream_queue'].get_nowait()
+            # 【【【调试日志】】】
+            print(f"\n--- 📤 [Local Server] API 网关已取走数据块 (Task ID: {task_id[:8]}) ---")
+            print(chunk)
+            print("------------------------------------------------------------------")
             return jsonify({"status": "ok", "chunk": chunk}), 200
         except Empty:
             # 如果队列为空，检查任务是否已完成
@@ -113,12 +123,46 @@ def report_result():
         return jsonify({"status": "success"}), 200
     return jsonify({"status": "error", "message": "无效的任务 ID。"}), 404
 
+# --- 【【【新】】】工具函数结果 API ---
+
+@app.route('/submit_tool_result', methods=['POST'])
+def submit_tool_result():
+    """接收来自 OpenAI 网关的工具函数执行结果，并为响应流准备好存储空间"""
+    data = request.json
+    if not data or 'task_id' not in data or 'result' not in data:
+        return jsonify({"status": "error", "message": "需要 'task_id' 和 'result' 字段。"}), 400
+    
+    task_id = data['task_id']
+    job = {"task_id": task_id, "result": data['result']}
+    TOOL_RESULT_JOBS.put(job)
+
+    # 【【【核心修复】】】为这个新任务初始化结果存储，否则后续的流数据将无处安放
+    RESULTS[task_id] = {
+        "status": "pending",
+        "stream_queue": Queue(),
+        "full_response": None
+    }
+    
+    print(f"✅ 已接收到新的【工具返回任务】(ID: {task_id[:8]}) 并已为其准备好流接收队列。工具队列现有任务: {TOOL_RESULT_JOBS.qsize()}。")
+    return jsonify({"status": "success"}), 200
+
+@app.route('/get_tool_result_job', methods=['GET'])
+def get_tool_result_job():
+    """供 Automator 油猴脚本获取工具函数返回任务"""
+    try:
+        job = TOOL_RESULT_JOBS.get_nowait()
+        print(f"🚀 Automator 已取走工具返回任务 (ID: {job['task_id'][:8]})。队列剩余: {TOOL_RESULT_JOBS.qsize()}。")
+        return jsonify({"status": "success", "job": job}), 200
+    except Empty:
+        return jsonify({"status": "empty"}), 200
+
 
 if __name__ == '__main__':
     print("======================================================================")
-    print("  历史编辑代理服务器 v4.0 (Streaming Ready)")
+    print("  历史编辑代理服务器 v5.0 (Tool Result Ready)")
     print("  - /submit_injection_job, /get_injection_job (用于初始注入)")
     print("  - /submit_prompt, /get_prompt_job (用于发起对话)")
+    print("  - /submit_tool_result, /get_tool_result_job (用于返回工具结果)")
     print("  - /stream_chunk, /get_chunk (用于流式传输)")
     print("  已在 http://127.0.0.1:5101 启动")
     print("======================================================================")
