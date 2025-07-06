@@ -5,6 +5,7 @@
 // @description  Implements highly specific end-of-stream detection by looking for the unique final ID signature block, preventing premature termination on intermediate metadata.
 // @author       You & AI Assistant
 // @match        https://aistudio.google.com/prompts/*
+// @match        https://aistudio.google.com/app/prompts/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=google.com
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1
