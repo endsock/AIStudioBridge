@@ -6,17 +6,17 @@
 ## ✨ 主要功能
 - **自动化脚本 (`TampermonkeyScript/automator.js`)**: 🤖 作为一个油猴脚本，它在浏览器中运行，简化重复任务，提高工作流效率。
 - **历史记录伪造 (`TampermonkeyScript/historyforger.js`)**: 📜 作为一个油猴脚本，它在浏览器中运行，灵活管理和修改历史记录，用于测试或数据准备。
-- **本地历史服务器 (`local_history_server.py`)**: 💾 提供一个本地 API 端点，用于存储和检索历史数据，支持流式传输。
+- **模型列表获取器 (`TampermonkeyScript/modelfetcher.js`)**: 🛰️ 一个专用的油猴脚本，用于拦截和获取可用的 AI 模型列表，并通过本地服务器提供给客户端。
+- **本地历史服务器 (`local_history_server.py`)**: 💾 提供一个本地 API 端点，用于存储和检索历史数据，并协调各脚本的工作。
 - **[`OpenAI`](OpenAI) 兼容服务器 (`openai_compatible_server.py`)**: 🔌 将本地服务封装为 [`OpenAI`](OpenAI) API 格式，方便与现有工具集成。
 
-### 👑 核心亮点：完整的函数调用支持！
-我们项目最强大的功能是**完全自动化、端到端的函数调用（Function Calling / Tool Calling）**。这意味着您可以：
+### 👑 核心亮点：完整的函数调用和动态模型列表！
+我们项目最强大的功能是**完全自动化、端到端的函数调用（Function Calling / Tool Calling）**和**动态模型列表获取**。这意味着您可以：
 - **定义您的工具**: 在发送给 API 的请求中定义您的函数（工具）。
 - **AI 自动调用**: AI Studio 会智能地决定何时、如何调用您提供的工具，并返回一个符合 OpenAI 格式的 `tool_calls` 响应。
 - **并行调用支持**: 系统能够处理 AI 一次请求调用**多个函数**的复杂场景。
 - **全周期自动化**: 您可以在客户端执行函数，将结果通过 `role: "tool"` 消息发回，我们的系统会自动将结果提交给 AI Studio，并流式返回 AI 的最终文本回答，完成整个交互闭环。
-
-我们为此功能提供了一个专门的测试脚本，您可以参考 [`test_full_tool_call_cycle.py`](test_full_tool_call_cycle.py) 来了解如何构造请求并测试完整的函数调用周期。
+- **动态获取模型**: 通过调用 `/v1/models` 接口，系统会自动触发 `modelfetcher.js` 脚本刷新页面、拦截请求，并返回一个与 OpenAI 完全兼容的实时模型列表。
 
 ## 🛠️ 安装指南
 
@@ -59,7 +59,7 @@
 
 - **安装油猴脚本**:
   1. 确保您的浏览器已安装 [`Tampermonkey`](Tampermonkey) 或 [`Greasemonkey`](Greasemonkey) 等脚本管理器。
-  2. 打开 `TampermonkeyScript/automator.js` 和 `TampermonkeyScript/historyforger.js` 文件，脚本管理器会自动提示您安装。
+  2. 打开 `TampermonkeyScript/automator.js`, `TampermonkeyScript/historyforger.js`, 和 `TampermonkeyScript/modelfetcher.js` 文件，脚本管理器会自动提示您安装所有这三个脚本。
   3. 安装后，这些脚本将在特定网页加载时自动运行，与您的本地服务器进行交互。
 
 ### 打开一个AI Studio Chat历史对话页面,确保不是空对话页面

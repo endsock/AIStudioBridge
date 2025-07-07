@@ -8,16 +8,23 @@ import re
 import uuid
 from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
+from datetime import datetime, timedelta
 
 # --- 配置 ---
 PUBLIC_PORT = 5100
 INTERNAL_SERVER_URL = "http://127.0.0.1:5101"
 END_OF_STREAM_SIGNAL = "__END_OF_STREAM__"
+MODEL_CACHE_TTL_SECONDS = 3600 # 模型列表缓存1小时
 
 app = Flask(__name__)
 CORS(app)
 
 LAST_CONVERSATION_STATE = None
+MODEL_LIST_CACHE = {
+    "data": None,
+    "timestamp": 0
+}
+
 
 # --- OpenAI 格式化辅助函数 (升级) ---
 
@@ -402,10 +409,121 @@ def chat_completions():
     else:
         return jsonify(generate_non_streaming_response(task_id, request_base_for_update, last_message))
 
+# --- 【【【新】】】模型列表 API ---
+
+def parse_google_models_to_openai_format(google_models_json: str) -> list:
+    """解析来自 Google AI Studio 的原始模型数据并将其转换为 OpenAI 格式。"""
+    try:
+        # 移除可能存在的前缀，确保是有效的 JSON
+        clean_json_str = google_models_json.strip()
+        if not clean_json_str.startswith('['):
+            clean_json_str = clean_json_str[clean_json_str.find('['):]
+        
+        data = json.loads(clean_json_str)
+        model_list = []
+        
+        # 响应体是一个嵌套层级很深的数组
+        all_model_data = data[0]
+
+        for model_data in all_model_data:
+            try:
+                internal_id = model_data[0]
+                # 有些模型ID可能不含'/'，做好兼容
+                model_id = internal_id.split('/')[-1] if '/' in internal_id else internal_id
+                display_name = model_data[3]
+                
+                # 创建一个符合 OpenAI 格式的字典
+                model_entry = {
+                    "id": model_id,
+                    "object": "model",
+                    "created": int(time.time()), # 使用当前时间作为创建时间
+                    "owned_by": "google",
+                    # 添加额外元数据以便客户端使用
+                    "internal_id": internal_id,
+                    "display_name": display_name,
+                    "description": model_data[4] if len(model_data) > 4 else "No description available.",
+                    "max_context_tokens": model_data[8] if len(model_data) > 8 else 0,
+                    "max_output_tokens": model_data[9] if len(model_data) > 9 else 0,
+                    "top_p": model_data[12] if len(model_data) > 12 else 0.0,
+                    "top_k": model_data[13] if len(model_data) > 13 else 0
+                }
+                model_list.append(model_entry)
+            except (IndexError, TypeError) as e:
+                print(f"⚠️ [Model Parser] 解析模型条目时跳过一个格式不符的条目: {e} - 条目: {str(model_data)[:100]}")
+                continue
+        
+        print(f"✅ [Model Parser] 成功解析并转换了 {len(model_list)} 个模型。")
+        return model_list
+    except (json.JSONDecodeError, IndexError, TypeError) as e:
+        print(f"🚨 [Model Parser] 解析整个模型列表时发生严重错误: {e}")
+        return []
+
+def fetch_and_cache_models():
+    """获取并缓存模型列表。如果缓存有效则直接返回，否则触发新的获取流程。"""
+    global MODEL_LIST_CACHE
+    
+    # 检查缓存是否有效
+    cache_age = time.time() - MODEL_LIST_CACHE['timestamp']
+    if MODEL_LIST_CACHE['data'] and cache_age < MODEL_CACHE_TTL_SECONDS:
+        print("✅ [Model Cache] 模型列表缓存有效，直接返回。")
+        return MODEL_LIST_CACHE['data']
+
+    print("🔄 [Model Fetcher] 模型列表缓存不存在或已过期，开始新的获取流程...")
+    try:
+        # 1. 触发油猴脚本开始获取
+        print("...[Model Fetcher] 1/3 - 发送获取任务到本地服务器...")
+        res_submit = requests.post(f"{INTERNAL_SERVER_URL}/submit_model_fetch_job", timeout=5)
+        res_submit.raise_for_status()
+
+        # 2. 等待油猴脚本返回数据
+        print("...[Model Fetcher] 2/3 - 等待油猴脚本返回模型数据 (最长60秒)...")
+        res_get = requests.get(f"{INTERNAL_SERVER_URL}/get_reported_models", timeout=65)
+        res_get.raise_for_status()
+        
+        response_data = res_get.json()
+        if response_data.get('status') != 'success':
+            raise Exception(f"获取模型数据失败: {response_data.get('message', '未知错误')}")
+
+        raw_models_json = response_data.get('data')
+
+        # 3. 解析并缓存结果
+        print("...[Model Fetcher] 3/3 - 解析并缓存新的模型列表...")
+        formatted_models = parse_google_models_to_openai_format(raw_models_json)
+        
+        MODEL_LIST_CACHE['data'] = formatted_models
+        MODEL_LIST_CACHE['timestamp'] = time.time()
+
+        return formatted_models
+
+    except requests.exceptions.RequestException as e:
+        print(f"🚨 [Model Fetcher] 与本地服务器通信失败: {e}")
+        return None
+    except Exception as e:
+        print(f"🚨 [Model Fetcher] 获取模型列表过程中发生未知错误: {e}")
+        return None
+
+@app.route('/v1/models', methods=['GET'])
+def list_models():
+    """实现 OpenAI 的 /v1/models 接口。"""
+    print(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] 接收到新的 /v1/models 请求...")
+    
+    models = fetch_and_cache_models()
+    
+    if models is None:
+        return jsonify({"error": "无法从内部服务器获取模型列表。"}), 500
+        
+    response_data = {
+      "object": "list",
+      "data": models
+    }
+    
+    return jsonify(response_data)
+
+
 if __name__ == "__main__":
     if not check_internal_server(): sys.exit(1)
-    print("="*60); print("  OpenAI 兼容 API 网关 v5.1 (Robust Tool Handling)"); print("="*60)
+    print("="*60); print("  OpenAI 兼容 API 网关 v6.0 (Model Fetcher Ready)"); print("="*60)
+    print("  ✨ 新功能: 支持通过 /v1/models 动态获取模型列表。")
     print("  ✨ 新功能: 支持通过 'role: tool' 消息返回函数执行结果。")
-    print("  ✨ 修复: 确保为工具返回的响应流正确初始化任务。")
     print("\n  运行指南:"); print("  1. ✅ `local_history_server.py` 已成功连接。"); print("  2. ✅ 确保浏览器和油猴脚本已就绪。"); print(f"  3. 🚀 本 API 服务器正在 http://127.0.0.1:{PUBLIC_PORT} 上运行。"); print("="*60)
     app.run(host='0.0.0.0', port=PUBLIC_PORT, threaded=True)
