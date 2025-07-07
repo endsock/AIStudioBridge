@@ -126,18 +126,20 @@ def parse_final_buffer_for_tool_calls(buffer: str):
     """
     all_tool_calls = []
     try:
-        # 【【【核心修复：稳健地处理拼接的JSON】】】
-        # 1. 移除换行符和首尾空白
+        # 【【【核心修复 v2：更稳健地处理拼接的JSON】】】
         clean_buffer = buffer.strip()
-        # 2. 找到所有独立的 [...] 或 {...} 块
-        json_objects = re.findall(r'(\[.*?\]|\{.*?\})', clean_buffer)
-        # 3. 用逗号连接它们，并包裹在最外层方括号中，形成一个有效的JSON数组字符串
-        if not json_objects:
-            full_json_str = "[]"
+        if not clean_buffer:
+            all_chunks = []
         else:
-            full_json_str = f"[{','.join(json_objects)}]"
-        
-        all_chunks = json.loads(full_json_str)
+            # Google的流式响应可能是多个JSON数组通过换行符或直接拼接而成 (e.g., "[...]\n[...]...][...")
+            # 我们需要在它们之间插入逗号，使其成为一个有效的JSON数组。
+            # 1. 使用正则表达式处理在 "]" 和 "[" 之间可能存在的空白和换行符
+            processed_buffer = re.sub(r'\]\s*\[', '],[', clean_buffer)
+            
+            # 2. 将整个结果包裹在方括号中，形成一个单一的、有效的JSON数组字符串
+            full_json_str = f"[{processed_buffer}]"
+            
+            all_chunks = json.loads(full_json_str)
         
         # 递归查找所有函数调用结构体: `["function_name", [[args]]]`
         def find_all_calls_recursive(data):
