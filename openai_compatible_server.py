@@ -126,8 +126,17 @@ def parse_final_buffer_for_tool_calls(buffer: str):
     """
     all_tool_calls = []
     try:
-        clean_buffer = buffer.strip().lstrip(',')
-        full_json_str = f"[{clean_buffer}]"
+        # 【【【核心修复：稳健地处理拼接的JSON】】】
+        # 1. 移除换行符和首尾空白
+        clean_buffer = buffer.strip()
+        # 2. 找到所有独立的 [...] 或 {...} 块
+        json_objects = re.findall(r'(\[.*?\]|\{.*?\})', clean_buffer)
+        # 3. 用逗号连接它们，并包裹在最外层方括号中，形成一个有效的JSON数组字符串
+        if not json_objects:
+            full_json_str = "[]"
+        else:
+            full_json_str = f"[{','.join(json_objects)}]"
+        
         all_chunks = json.loads(full_json_str)
         
         # 递归查找所有函数调用结构体: `["function_name", [[args]]]`
