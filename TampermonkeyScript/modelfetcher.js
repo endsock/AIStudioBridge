@@ -4,7 +4,8 @@
 // @version      1.1
 // @description  Intercepts the ListModels XHR call to fetch available models and sends them to a local server.
 // @author       AI Assistant & You
-// @match        https://aistudio.google.com/*
+// @match        https://aistudio.google.com/prompts/*
+// @match        https://aistudio.google.com/app/prompts/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=google.com
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1

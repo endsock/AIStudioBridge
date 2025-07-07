@@ -4,7 +4,8 @@
 // @version      7.2
 // @description  Full control over AI Studio history and settings. Supports Text, JSON Mode, and Function Calling, with a robust UI corrector.
 // @author       You & AI Assistant
-// @match        https://aistudio.google.com/*
+// @match        https://aistudio.google.com/prompts/*
+// @match        https://aistudio.google.com/app/prompts/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=google.com
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1
