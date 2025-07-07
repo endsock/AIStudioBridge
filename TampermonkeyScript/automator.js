@@ -351,8 +351,8 @@
 
     function startMainLoop() {
         if (mainLoopInterval) clearInterval(mainLoopInterval);
-        pollForPromptJob();
-        mainLoopInterval = setInterval(pollForPromptJob, POLLING_INTERVAL);
+        pollForJobs();
+        mainLoopInterval = setInterval(pollForJobs, POLLING_INTERVAL);
     }
 
     function stopMainLoop() {
