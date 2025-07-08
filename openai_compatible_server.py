@@ -16,6 +16,12 @@ INTERNAL_SERVER_URL = "http://127.0.0.1:5101"
 END_OF_STREAM_SIGNAL = "__END_OF_STREAM__"
 MODEL_CACHE_TTL_SECONDS = 3600 # 模型列表缓存1小时
 
+# 【新】为本地连接定义无代理设置，避免系统代理干扰
+LOCAL_REQUEST_PROXIES = {
+    "http": None,
+    "https": None
+}
+
 app = Flask(__name__)
 CORS(app)
 
@@ -184,7 +190,7 @@ def _internal_task_processor(task_id: str):
     start_time = time.time()
     while time.time() - start_time < 120:
         try:
-            res = requests.get(f"{INTERNAL_SERVER_URL}/get_chunk/{task_id}", timeout=5)
+            res = requests.get(f"{INTERNAL_SERVER_URL}/get_chunk/{task_id}", timeout=5, proxies=LOCAL_REQUEST_PROXIES)
             if res.status_code == 200:
                 data = res.json()
                 if data['status'] == 'ok': yield data.get('chunk')
@@ -296,7 +302,7 @@ def generate_non_streaming_response(task_id: str, request_base: dict, user_or_to
 def check_internal_server():
     print("...正在检查内部服务器状态...")
     try:
-        response = requests.get(INTERNAL_SERVER_URL, timeout=3)
+        response = requests.get(INTERNAL_SERVER_URL, timeout=3, proxies=LOCAL_REQUEST_PROXIES)
         if response.status_code == 200:
             print(f"✅ 内部服务器 (在 {INTERNAL_SERVER_URL}) 连接成功！")
             return True
@@ -311,13 +317,13 @@ def _normalize_message_content(message: dict) -> dict:
 
 def _inject_history(job_payload: dict, wait_time: int = 15):
     try:
-        requests.post(f"{INTERNAL_SERVER_URL}/submit_injection_job", json=job_payload).raise_for_status()
+        requests.post(f"{INTERNAL_SERVER_URL}/submit_injection_job", json=job_payload, proxies=LOCAL_REQUEST_PROXIES).raise_for_status()
         time.sleep(wait_time); return True
     except requests.exceptions.RequestException: return False
 
 def _submit_prompt(prompt: str):
     try:
-        response = requests.post(f"{INTERNAL_SERVER_URL}/submit_prompt", json={"prompt": prompt})
+        response = requests.post(f"{INTERNAL_SERVER_URL}/submit_prompt", json={"prompt": prompt}, proxies=LOCAL_REQUEST_PROXIES)
         response.raise_for_status(); return response.json()['task_id']
     except requests.exceptions.RequestException: return None
 
@@ -329,7 +335,7 @@ def _submit_tool_result(result: str):
     try:
         new_task_id = str(uuid.uuid4())
         payload = {"task_id": new_task_id, "result": result}
-        response = requests.post(f"{INTERNAL_SERVER_URL}/submit_tool_result", json=payload)
+        response = requests.post(f"{INTERNAL_SERVER_URL}/submit_tool_result", json=payload, proxies=LOCAL_REQUEST_PROXIES)
         response.raise_for_status()
         print(f"✅ [API Gateway] 已为工具返回结果创建并提交新任务 (ID: {new_task_id[:8]})。")
         return new_task_id
@@ -487,12 +493,12 @@ def fetch_and_cache_models():
     try:
         # 1. 触发油猴脚本开始获取
         print("...[Model Fetcher] 1/3 - 发送获取任务到本地服务器...")
-        res_submit = requests.post(f"{INTERNAL_SERVER_URL}/submit_model_fetch_job", timeout=5)
+        res_submit = requests.post(f"{INTERNAL_SERVER_URL}/submit_model_fetch_job", timeout=5, proxies=LOCAL_REQUEST_PROXIES)
         res_submit.raise_for_status()
 
         # 2. 等待油猴脚本返回数据
         print("...[Model Fetcher] 2/3 - 等待油猴脚本返回模型数据 (最长60秒)...")
-        res_get = requests.get(f"{INTERNAL_SERVER_URL}/get_reported_models", timeout=65)
+        res_get = requests.get(f"{INTERNAL_SERVER_URL}/get_reported_models", timeout=65, proxies=LOCAL_REQUEST_PROXIES)
         res_get.raise_for_status()
         
         response_data = res_get.json()
