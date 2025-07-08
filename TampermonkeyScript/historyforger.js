@@ -6,6 +6,7 @@
 // @author       You & AI Assistant
 // @match        https://aistudio.google.com/prompts/*
 // @match        https://aistudio.google.com/app/prompts/*
+// @match        https://aistudio.google.com/u/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=google.com
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1
