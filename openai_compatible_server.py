@@ -220,14 +220,16 @@ def stream_and_update_state(task_id: str, request_base: dict, user_or_tool_messa
     for chunk_content in _internal_task_processor(task_id):
         if chunk_content == END_OF_STREAM_SIGNAL: break
         full_raw_response_buffer += chunk_content
-        match = text_pattern.search(chunk_content)
-        if match:
+        matches = text_pattern.findall(chunk_content)
+        for match_group in matches:
             try:
-                text = json.loads(f'"{match.group(1)}"')
+                # findall直接返回捕获组的内容
+                text = json.loads(f'"{match_group}"')
                 if text and not text.startswith("**"):
                     full_ai_response_text += text
                     yield format_openai_chunk(text, model, request_id)
-            except json.JSONDecodeError: continue
+            except json.JSONDecodeError:
+                continue
 
     print("... 🟡 [Stream Mode] 流结束，解析最终结果 ...")
     final_tool_calls = parse_final_buffer_for_tool_calls(full_raw_response_buffer)
@@ -257,13 +259,15 @@ def generate_non_streaming_response(task_id: str, request_base: dict, user_or_to
     for chunk_content in _internal_task_processor(task_id):
         if chunk_content == END_OF_STREAM_SIGNAL: break
         full_raw_response_buffer += chunk_content
-        match = text_pattern.search(chunk_content)
-        if match:
+        matches = text_pattern.findall(chunk_content)
+        for match_group in matches:
             try:
-                text = json.loads(f'"{match.group(1)}"')
+                # findall直接返回捕获组的内容
+                text = json.loads(f'"{match_group}"')
                 if text and not text.startswith("**"):
                     full_ai_response_text += text
-            except json.JSONDecodeError: continue
+            except json.JSONDecodeError:
+                continue
     
     print("... 🟡 [Non-Stream Mode] 收集完成，解析最终结果 ...")
     final_tool_calls = parse_final_buffer_for_tool_calls(full_raw_response_buffer)
