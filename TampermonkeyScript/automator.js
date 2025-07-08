@@ -161,12 +161,18 @@
         }
         inputArea.value = promptText;
         inputArea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        await new Promise(r => setTimeout(r, 300));
 
-        const submitButton = document.querySelector(SUBMIT_BUTTON_SELECTOR);
-        if (!submitButton || submitButton.disabled) {
+        const submitButton = await waitForElement(SUBMIT_BUTTON_SELECTOR);
+        if (!submitButton) {
             restoreNetworkInterceptor();
-            reportTaskResult("failed", "提交按钮未激活。");
+            reportTaskResult("failed", "找不到主提交按钮。");
+            return;
+        }
+
+        const enabled = await waitForButtonEnabled(submitButton);
+        if (!enabled) {
+            restoreNetworkInterceptor();
+            reportTaskResult("failed", "等待主提交按钮激活超时。");
             return;
         }
         submitButton.click();
@@ -200,13 +206,19 @@
         // 2. 填入结果
         lastTextarea.value = resultText;
         lastTextarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        await new Promise(r => setTimeout(r, 300));
 
-        // 3. 找到与该文本域关联的提交按钮并点击
+        // 3. 找到与该文本域关联的提交按钮并等待其激活
         const submitButton = lastTextarea.closest('form')?.querySelector('button[type="submit"]');
-        if (!submitButton || submitButton.disabled) {
+        if (!submitButton) {
             restoreNetworkInterceptor();
-            reportTaskResult("failed", "工具函数响应的提交按钮未激活。");
+            reportTaskResult("failed", "找不到工具函数响应的提交按钮。");
+            return;
+        }
+
+        const enabled = await waitForButtonEnabled(submitButton);
+        if (!enabled) {
+            restoreNetworkInterceptor();
+            reportTaskResult("failed", "等待工具函数响应的提交按钮激活超时。");
             return;
         }
         submitButton.click();
@@ -375,7 +387,7 @@
             intervalId = setInterval(() => {
                 for (const selector of selectorArray) {
                     const el = document.querySelector(selector);
-                    if (el && el.offsetParent !== null) {
+                    if (el && el.offsetParent !== null) { // 检查元素是否可见
                         clearInterval(intervalId);
                         clearTimeout(timer);
                         resolve(el);
@@ -383,6 +395,22 @@
                     }
                 }
             }, 200);
+        });
+    }
+
+    async function waitForButtonEnabled(button, timeout = 10000) {
+        return new Promise(resolve => {
+            const startTime = Date.now();
+            const intervalId = setInterval(() => {
+                if (!button.disabled) {
+                    clearInterval(intervalId);
+                    resolve(true);
+                } else if (Date.now() - startTime > timeout) {
+                    clearInterval(intervalId);
+                    console.error("waitForButtonEnabled 超时: 按钮在规定时间内未变为可用状态。", button);
+                    resolve(false);
+                }
+            }, 200); // 每 200ms 检查一次
         });
     }
 
