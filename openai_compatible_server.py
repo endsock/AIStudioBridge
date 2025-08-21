@@ -25,11 +25,15 @@ LOCAL_REQUEST_PROXIES = {
 app = Flask(__name__)
 CORS(app)
 
+import threading
+
 LAST_CONVERSATION_STATE = None
 MODEL_LIST_CACHE = {
     "data": None,
     "timestamp": 0
 }
+# 【新】使用 Event 实现更简单的单任务注入状态同步
+INJECTION_COMPLETE_EVENT = threading.Event()
 
 
 # --- OpenAI 格式化辅助函数 (升级) ---
@@ -315,11 +319,34 @@ def _normalize_message_content(message: dict) -> dict:
         message["content"] = "\n\n".join([p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"])
     return message
 
-def _inject_history(job_payload: dict, wait_time: int = 15):
+def _inject_history(job_payload: dict, timeout: int = 30):
+    """
+    提交注入任务并智能等待其完成，而不是固定等待。
+    返回 True 表示成功，False 表示失败或超时。
+    """
     try:
+        # 1. 重置事件标志
+        INJECTION_COMPLETE_EVENT.clear()
+        
+        # 2. 提交任务
+        print("🔄 [Injection] 提交注入任务到内部服务器...")
         requests.post(f"{INTERNAL_SERVER_URL}/submit_injection_job", json=job_payload, proxies=LOCAL_REQUEST_PROXIES).raise_for_status()
-        time.sleep(wait_time); return True
-    except requests.exceptions.RequestException: return False
+
+        # 3. 等待事件被设置 (最多等待 timeout 秒)
+        print(f"...[Injection] 开始等待 History Forger 完成注入 (最长 {timeout} 秒)...")
+        completed_in_time = INJECTION_COMPLETE_EVENT.wait(timeout=timeout)
+
+        if completed_in_time:
+            print("✅ [Injection] 已收到注入完成信号！")
+            return True
+        else:
+            print("🚨 [Injection] 等待注入完成超时！")
+            return False
+
+    except requests.exceptions.RequestException as e:
+        print(f"🚨 [Injection] 提交注入任务失败: {e}")
+        return False
+
 
 def _submit_prompt(prompt: str):
     try:
@@ -342,6 +369,14 @@ def _submit_tool_result(result: str):
     except requests.exceptions.RequestException as e:
         print(f"🚨 [API Gateway] 提交工具结果失败: {e}")
         return None
+
+
+@app.route('/report_injection_complete', methods=['POST'])
+def report_injection_complete():
+    """由 historyforger.js 调用，以设置注入完成的事件"""
+    print("✔️ [Injection] 收到来自 History Forger 的完成报告。")
+    INJECTION_COMPLETE_EVENT.set()
+    return jsonify({"status": "success"}), 200
 
 
 @app.route('/reset_state', methods=['POST'])

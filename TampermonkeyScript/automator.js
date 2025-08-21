@@ -9,7 +9,7 @@
 // @match        https://aistudio.google.com/u/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=google.com
 // @grant        GM_xmlhttpRequest
-// @connect      127.0.0.1
+// @connect      192.168.232.25
 // @connect      alkalimakersuite-pa.clients6.google.com
 // @run-at       document-start
 // ==/UserScript==
@@ -21,7 +21,7 @@
     const SCRIPT_PREFIX = 'aistudio_automator_';
     console.log(`🤖 AI Studio Automator v6.4 (The Signature Detective) 已启动！`);
 
-    const LOCAL_SERVER_URL = "http://127.0.0.1:5101";
+    const LOCAL_SERVER_URL = "http://192.168.232.25:5101";
     const POLLING_INTERVAL = 1000;
     const INPUT_SELECTORS = [
         'textarea[aria-label="Start typing a prompt"]',
@@ -246,6 +246,7 @@
                 try {
                     const data = JSON.parse(res.responseText);
                     if (data.status === 'success' && data.job) {
+                        console.log("...[Automator] 检测工具调用任务...");
                         currentTask = data.job;
                         handleToolResultTask(currentTask.result);
                         isRequesting = false; // 任务已找到，可以结束请求链
@@ -272,6 +273,7 @@
             onload: (res) => {
                 try {
                     const data = JSON.parse(res.responseText);
+                    console.log("...[Automator] 检测普通对话任务："+res.responseText);
                     if (data.status === 'success' && data.job) {
                         currentTask = data.job;
                         handlePromptTask(currentTask.prompt);

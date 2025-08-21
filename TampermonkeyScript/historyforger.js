@@ -9,7 +9,7 @@
 // @match        https://aistudio.google.com/u/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=google.com
 // @grant        GM_xmlhttpRequest
-// @connect      127.0.0.1
+// @connect      192.168.232.25
 // @run-at       document-start
 // ==/UserScript==
 
@@ -19,8 +19,9 @@
 
     // --- 配置和常量 ---
     const TARGET_URL_PART = "MakerSuiteService/ResolveDriveResource";
-    const LOCAL_SERVER_URL = "http://127.0.0.1:5101";
-    const POLLING_INTERVAL = 2000;
+    const LOCAL_SERVER_URL = "http://192.168.232.25:5101";
+    const OPENAI_GATEWAY_URL = "http://192.168.232.25:5100"; // 【新】定义网关服务器地址
+    const POLLING_INTERVAL = 1000;
     const ACTION_KEY = 'AISTUDIO_FORGE_ACTION';
     const DATA_KEY = 'AISTUDIO_FORGE_DATA';
     const TOOL_STATE_KEYS = {
@@ -329,10 +330,21 @@
 
                         const forgedResponse = JSON.stringify(mergeData(freshTemplate, jobData));
 
-                        // 【【【新信标】】】
-                        // 注入完成后，设置一个标志，告诉 Automator 可以开始工作了
-                        console.log('✅ History Forger: 注入完成，设置对话就绪信标 (AUTOMATION_READY)。');
+                        // 【【【重大升级：双重信标通知】】】
+                        // 1. 设置 sessionStorage 信标，通知同一页面内的 Automator
+                        console.log('✅ History Forger: 注入完成，设置本地对话就绪信标 (AUTOMATION_READY)。');
                         sessionStorage.setItem('AUTOMATION_READY', 'true');
+
+                        // 2. 通过 API 通知 OpenAI 网关服务器，解除其阻塞
+                        console.log('...[History Forger] 正在向 OpenAI 网关发送注入完成信号...');
+                        GM_xmlhttpRequest({
+                            method: "POST",
+                            url: `${OPENAI_GATEWAY_URL}/report_injection_complete`,
+                            headers: { "Content-Type": "application/json" },
+                            data: JSON.stringify({ status: "completed" }), // 数据内容不重要，主要是为了触发
+                            onload: () => console.log('✔️ History Forger: 注入完成信号已成功发送。'),
+                            onerror: (err) => console.error("❌ History Forger: 发送注入完成信号失败:", err)
+                        });
 
                         return forgedResponse;
                     }
