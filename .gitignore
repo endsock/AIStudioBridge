@@ -5,3 +5,6 @@
 /test_tool_calling.py
 /test_full_tool_call_cycle.py
 /F12
+.idea
+__pycache__
+.venv
