@@ -22,7 +22,7 @@
     console.log(`🤖 AI Studio Automator v6.4 (The Signature Detective) 已启动！`);
 
     const LOCAL_SERVER_URL = "http://127.0.0.1:5101";
-    const POLLING_INTERVAL = 3000;
+    const POLLING_INTERVAL = 1000;
     const INPUT_SELECTORS = [
         'textarea[aria-label="Start typing a prompt"]',
         'textarea[aria-label="Type something or tab to choose an example prompt"]'
