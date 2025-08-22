@@ -22,6 +22,7 @@
     console.log(`🤖 AI Studio Automator v6.4 (The Signature Detective) 已启动！`);
 
     const LOCAL_SERVER_URL = "http://192.168.232.25:5101";
+    const OPENAI_GATEWAY_URL = "http://192.168.232.25:5100"; // 【新】定义网关服务器地址
     const POLLING_INTERVAL = 1000;
     const INPUT_SELECTORS = [
         'textarea[aria-label="Start typing a prompt"]',
@@ -332,6 +333,17 @@
         if (!isMaster) {
             console.log(`👑 [Tab ${TAB_ID.slice(-4)}] 我现在是主标签页!`);
             isMaster = true;
+
+            // 【【【新功能：状态重置】】】
+            // 成为主的瞬间，立即通知服务器重置状态，确保一个全新的开始。
+            console.log('...[Automator] 作为新的主标签页，正在向服务器发送状态重置信号...');
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: `${OPENAI_GATEWAY_URL}/reset_state`,
+                onload: () => console.log('✔️ [Automator] 状态重置信号已成功发送。'),
+                onerror: (err) => console.error('❌ [Automator] 发送状态重置信号失败:', err)
+            });
+
             updateHeartbeat();
             const checkReadyInterval = setInterval(() => {
                 if (sessionStorage.getItem(AUTOMATION_READY_KEY) === 'true') {
