@@ -403,7 +403,9 @@ def chat_completions():
     if LAST_CONVERSATION_STATE:
         cached_messages, new_messages_base = LAST_CONVERSATION_STATE.get("messages", []), messages[:-1]
         # 检查是否是连续对话（用户或工具）
-        if json.dumps(cached_messages, sort_keys=True) == json.dumps(new_messages_base, sort_keys=True):
+        # 【【【优化：只比较最后5条消息以提高效率和容错性】】】
+        # 取每个列表的最后5个元素进行比较
+        if json.dumps(cached_messages[-5:], sort_keys=True) == json.dumps(new_messages_base[-5:], sort_keys=True):
             last_message_role = messages[-1].get("role")
             if last_message_role in ["user", "tool"]:
                  is_continuation = True
