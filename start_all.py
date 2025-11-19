@@ -99,7 +99,11 @@ def main():
     openai_thread = threading.Thread(target=run_openai_server, daemon=True)
 
     try:
+        # 再等片刻启动OpenAI兼容服务器
+        openai_thread.start()
+        print("✅ OpenAI兼容服务器线程已启动")
         # 启动本地历史服务器线程
+        time.sleep(2)
         local_thread.start()
         print("✅ 本地历史服务器线程已启动 (端口: 5101)")
 
@@ -108,10 +112,7 @@ def main():
         proxy_thread.start()
         print("✅ 透明代理服务器线程已启动 (端口: 5105)")
 
-        # 再等片刻启动OpenAI兼容服务器
-        time.sleep(2)
-        openai_thread.start()
-        print("✅ OpenAI兼容服务器线程已启动")
+
 
         print("\n🎉 所有服务器已启动！")
         print("="*60)

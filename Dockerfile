@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # 暴露端口（根据代码，默认使用5101和另一个端口）
-EXPOSE 5101 5100
+EXPOSE 5101 5100 5105
 
 # 启动命令
 CMD ["python", "start_all.py"]
