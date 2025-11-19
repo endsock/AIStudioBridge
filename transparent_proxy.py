@@ -48,7 +48,6 @@ def transform_chunk_data(original_chunk):
 
 def refresh_access_token():
     print("🔄 Attempting to refresh OAuth2 token...")
-    return "ya29.a0ATi6K2sizX1IpgCRsUhocp-XaTr-yyIn1fYUioLxs2w553jS9RGJbhPOUlE_ZTPMQwqWDTlf7qQ3oVmOzrGplwNhdCbHhb9Rlx5YgUXPgE_GHreIu7V5cmAWY8Sn6MRZDqd0AtC-V3op9JwVMN3_dYkedXI9o1krwQz8EmioOCT6uXFoSxosAn4lK--xNmrVrCa3nRSBTDL0-AaCgYKAf4SARUSFQHGX2Mi23y1RunHC4maJzAqnVswKg0213"
     url = "https://oauth2.googleapis.com/token"
     headers = {
         "Host": "oauth2.googleapis.com",
