@@ -98,6 +98,10 @@ def proxy_stream_generate_content(model):
         post_data = {}
         post_data["project"] = "poised-vortex-8rl9f"
         post_data["requestId"] = f"agent-{uuid.uuid4()}"
+        if model == "super-glm-think":
+            model = "claude-sonnet-4-5-thinking"
+        elif model == "super-glm":
+            model = "claude-sonnet-4-5"
         post_data["model"] = model
         json_data = request.get_json()
         if json_data is None:
@@ -181,6 +185,10 @@ def proxy_generate_content(model):
         post_data = {}
         post_data["project"] = "poised-vortex-8rl9f"
         post_data["requestId"] = f"agent-{uuid.uuid4()}"
+        if model == "super-glm-think":
+            model = "claude-sonnet-4-5-thinking"
+        elif model == "super-glm":
+            model = "claude-sonnet-4-5"
         post_data["model"] = model
         json_data = request.get_json()
         if json_data is None:
