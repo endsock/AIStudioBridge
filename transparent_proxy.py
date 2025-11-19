@@ -35,11 +35,9 @@ def transform_chunk_data(original_chunk):
             response_data = data['response']
 
             # 转换为JSON字符串并编码回bytes
-            print(response_data)
             return ("data: " + json.dumps(response_data) + '\n\n').encode('utf-8')
         else:
             # 没有response字段，直接去掉data:前缀返回
-            print(json_str)
             return ("data: " + json_str + '\n\n').encode('utf-8')
 
     except Exception as e:
