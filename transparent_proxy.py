@@ -169,9 +169,10 @@ def proxy_generate_content(model):
         return '', 200
 
     # 1. 获取原始请求的 Headers (排除 Host 和 Content-Length 以避免冲突)
-    headers = {key: value for key, value in request.headers if key.lower() not in ['host', 'content-length']}
+    headers = {}
     headers["Host"] = "daily-cloudcode-pa.sandbox.googleapis.com"
     headers["User-Agent"] = "antigravity/1.11.3 windows/amd64"
+    headers["Content-Type"] = "application/json"
 
     # 使用全局 Token
     if GLOBAL_ACCESS_TOKEN:
@@ -179,21 +180,19 @@ def proxy_generate_content(model):
 
     # 2. 获取原始请求的 JSON 数据
     try:
+        post_data = {}
+        post_data["project"] = "poised-vortex-8rl9f"
+        post_data["requestId"] = f"agent-{uuid.uuid4()}"
+        post_data["model"] = model
         json_data = request.get_json()
         if json_data is None:
-             return f"request JSON is None", 400
-        json_data["project"] = "poised-vortex-8rl9f"
-        json_data["requestId"] = f"agent-{uuid.uuid4()}"
-        json_data["model"] = model
+             return "request JSON is None", 400
+        post_data["request"] = json_data
 
-        # Inject thinkingConfig
-        if "request" not in json_data:
-            return f"request is None", 400
+        if "generationConfig" not in post_data["request"]:
+            post_data["request"]["generationConfig"] = {}
 
-        if "generationConfig" not in json_data["request"]:
-            json_data["request"]["generationConfig"] = {}
-
-        json_data["request"]["generationConfig"]["thinkingConfig"] = {
+        post_data["request"]["generationConfig"]["thinkingConfig"] = {
             "includeThoughts": True
         }
     except Exception as e:
@@ -201,8 +200,10 @@ def proxy_generate_content(model):
 
     # 3. 发起非流式请求
     try:
-        target_url = "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:generateContent"
-        resp = requests.post(target_url, headers=headers, json=json_data, verify=False)
+        # 发起请求到目标地址，非流式模式
+        # verify=False 用于忽略 SSL 证书验证（针对 IP 地址访问通常需要）
+        resp = requests.post(TARGET_URL.replace(':streamGenerateContent?alt=sse', ':generateContent'),
+                           headers=headers, json=post_data, stream=False, verify=False)
 
         # 检查是否需要刷新 Token (401 Unauthorized)
         if resp.status_code == 401:
@@ -210,15 +211,26 @@ def proxy_generate_content(model):
 
             new_token = refresh_access_token()
             if new_token:
+                global GLOBAL_ACCESS_TOKEN
                 GLOBAL_ACCESS_TOKEN = new_token
                 headers["Authorization"] = f"Bearer {new_token}"
                 print("🔄 Retrying request with new token...")
-                resp = requests.post(target_url, headers=headers, json=json_data, verify=False)
+                resp = requests.post(TARGET_URL.replace(':streamGenerateContent?alt=sse', ':generateContent'),
+                                   headers=headers, json=post_data, stream=False, verify=False)
             else:
                 return "Failed to refresh OAuth2 token.", 401
 
-        # 返回完整的响应
-        return resp.json(), resp.status_code
+        # 检查响应状态码
+        if resp.status_code != 200:
+            return f"Error from upstream: {resp.status_code} - {resp.text}", resp.status_code
+
+        # 返回非流式响应
+        # 透传响应头中的 Content-Type
+        response_headers = {}
+        if 'Content-Type' in resp.headers:
+            response_headers['Content-Type'] = resp.headers['Content-Type']
+
+        return resp.content, resp.status_code, response_headers.items()
 
     except Exception as e:
         return f"Proxy Error: {str(e)}", 500
