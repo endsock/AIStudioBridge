@@ -28,7 +28,7 @@
         'textarea[aria-label="Start typing a prompt"]',
         'textarea[aria-label="Type something or tab to choose an example prompt"]'
     ];
-    const SUBMIT_BUTTON_SELECTOR = 'run-button button';
+    const SUBMIT_BUTTON_SELECTOR = 'button[aria-label="Run"]';
     const AUTOMATION_READY_KEY = 'AUTOMATION_READY';
     const END_OF_STREAM_SIGNAL = "__END_OF_STREAM__";
 
