@@ -209,7 +209,6 @@ def proxy_generate_content(model):
 
             new_token = refresh_access_token()
             if new_token:
-                global GLOBAL_ACCESS_TOKEN
                 GLOBAL_ACCESS_TOKEN = new_token
                 headers["Authorization"] = f"Bearer {new_token}"
                 print("🔄 Retrying request with new token...")
